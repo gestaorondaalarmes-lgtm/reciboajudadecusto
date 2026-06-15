@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recibo de Ajuda de Custo — Ronda Alarmes</title>
+
+  <style>
+    /* =========================================================
+       VARIÁVEIS GLOBAIS
+    ========================================================= */
+    :root {
+      --azul-principal : #0A3D91;
+      --azul-escuro    : #0B2E73;
+      --cinza-texto    : #2E3440;
+      --cinza-borda    : #D0D4DA;
+      --cinza-fundo    : #F5F6F8;
+      --branco         : #FFFFFF;
+      --fonte-corpo    : system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --fonte-mono     : "SFMono-Regular", Consolas, "Courier New", monospace;
+      --margem         : 16mm;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--fonte-corpo);
+      font-size: 9.5pt;
+      color: var(--cinza-texto);
+      background: #E8EAED;
+      padding: 20px;
+    }
+
+    /* =========================================================
+       BARRA DE AÇÕES (somente tela)
+    ========================================================= */
+    .barra-acoes {
+      max-width: 210mm;
+      margin: 0 auto 14px auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .barra-acoes .dica {
+      flex: 1;
+      font-size: 7.8pt;
+      color: #596070;
+      min-width: 200px;
+      line-height: 1.45;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-family: var(--fonte-corpo);
+      font-size: 8.8pt;
+      font-weight: 600;
+      letter-spacing: .03em;
+      transition: opacity .15s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: .82; }
+    .btn-imprimir { background: var(--azul-principal); color: #fff; }
+    .btn-limpar   { background: var(--branco); color: var(--azul-principal);
+                    border: 1.5px solid var(--azul-principal); }
+
+    /* =========================================================
+       CONTÊINER DE PÁGINAS
+    ========================================================= */
+    #paginas-wrapper { max-width: 210mm; margin: 0 auto; }
+
+    /* Cada .pagina = folha A4 */
+    .pagina {
+      width: 210mm;
+      min-height: 297mm;
+      background: var(--branco);
+      padding: var(--margem);
+      padding-bottom: 22mm; /* reserva para o rodapé */
+      position: relative;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* =========================================================
+       CABEÇALHO DO DOCUMENTO
+    ========================================================= */
+    .doc-cabecalho {
+      border-bottom: 2.5px solid var(--azul-principal);
+      padding-bottom: 9px;
+      margin-bottom: 13px;
+    }
+    .doc-titulo {
+      font-size: 13.5pt;
+      font-weight: 700;
+      color: var(--azul-escuro);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+    .doc-subtitulo {
+      font-size: 8.5pt;
+      color: var(--azul-principal);
+      font-weight: 500;
+      margin-top: 3px;
+      letter-spacing: .04em;
+    }
+
+    /* =========================================================
+       BLOCOS DE CAMPOS
+    ========================================================= */
+    .bloco {
+      background: var(--cinza-fundo);
+      border: 1px solid var(--cinza-borda);
+      border-radius: 3px;
+      padding: 10px 13px;
+      margin-bottom: 11px;
+      break-inside: avoid;
+    }
+    .bloco-titulo {
+      font-size: 7pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: var(--azul-principal);
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--cinza-borda);
+    }
+    .campos-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 9px 14px;
+    }
+    .span2 { grid-column: span 2; }
+    .span4 { grid-column: span 4; }
+
+    .campo-item { display: flex; flex-direction: column; gap: 3px; }
+    .campo-label {
+      font-size: 6.8pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #6b7280;
+    }
+    .campo-input {
+      font-family: var(--fonte-corpo);
+      font-size: 9pt;
+      color: var(--cinza-texto);
+      border: 1px solid var(--cinza-borda);
+      border-radius: 3px;
+      padding: 5px 7px;
+      background: var(--branco);
+      width: 100%;
+    }
+    .campo-input:focus { outline: 2px solid var(--azul-principal); outline-offset: 1px; }
+    .campo-input[readonly] { background: #eef0f3; color: #4b5563; }
+    .campo-fixo {
+      font-size: 9pt;
+      color: var(--cinza-texto);
+      padding: 5px 0;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    /* aviso de período inválido */
+    .aviso-erro {
+      color: #c0392b;
+      font-size: 7.5pt;
+      margin-top: 7px;
+      padding: 5px 8px;
+      background: #fdf0ee;
+      border-left: 3px solid #c0392b;
+      border-radius: 2px;
+    }
+
+    /* =========================================================
+       TABELA DE DETALHAMENTO
+    ========================================================= */
+    .secao-tabela { margin-bottom: 11px; }
+    .tabela-titulo {
+      font-size: 7pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: var(--azul-principal);
+      margin-bottom: 5px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid var(--azul-principal);
+    }
+    .tabela-detalhe {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.8pt;
+    }
+    .tabela-detalhe thead th {
+      background: var(--azul-escuro);
+      color: #fff;
+      font-weight: 600;
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 6px 10px;
+      text-align: left;
+    }
+    .tabela-detalhe thead th:last-child { text-align: right; }
+    .tabela-detalhe tbody tr:nth-child(even) td { background: var(--cinza-fundo); }
+    .tabela-detalhe tbody td {
+      padding: 4.5px 10px;
+      border-bottom: 1px solid var(--cinza-borda);
+    }
+    .tabela-detalhe tbody td:last-child { text-align: right; }
+    .tabela-detalhe tfoot td {
+      padding: 7px 10px;
+      background: var(--azul-escuro);
+      color: #fff;
+      font-weight: 700;
+      font-size: 9pt;
+      border-top: 2px solid var(--azul-principal);
+    }
+    .tabela-detalhe tfoot td:last-child { text-align: right; }
+    .tabela-vazia {
+      text-align: center !important;
+      color: #9ca3af;
+      font-style: italic;
+      padding: 13px 10px !important;
+      font-size: 8pt;
+    }
+    .continuacao-label {
+      padding: 4px 10px;
+      font-size: 7pt;
+      color: #9ca3af;
+      font-style: italic;
+      background: var(--cinza-fundo);
+    }
+
+    /* =========================================================
+       BLOCO DE ASSINATURA DIGITAL
+    ========================================================= */
+    .bloco-assinatura {
+      border: 1.5px solid var(--cinza-borda);
+      border-radius: 4px;
+      padding: 11px 13px;
+      margin-top: auto;
+      break-inside: avoid;
+      background: var(--branco);
+    }
+    .assin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--azul-principal);
+      color: #fff;
+      font-size: 6.3pt;
+      font-weight: 700;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 2px;
+      margin-bottom: 9px;
+    }
+    .assin-nome {
+      font-size: 14.5pt;
+      font-style: italic;
+      color: var(--azul-escuro);
+      font-weight: 700;
+      letter-spacing: -.01em;
+      border-bottom: 1.5px solid var(--azul-principal);
+      padding-bottom: 5px;
+      margin-bottom: 9px;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .assin-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px 16px;
+    }
+    .assin-meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .assin-meta-label {
+      font-size: 6.3pt;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #9ca3af;
+      font-weight: 600;
+    }
+    .assin-meta-valor { font-size: 8pt; color: var(--cinza-texto); }
+    .assin-hash {
+      font-family: var(--fonte-mono);
+      font-size: 7.5pt;
+      color: var(--azul-principal);
+      letter-spacing: .04em;
+      word-break: break-all;
+    }
+    .assin-rodape {
+      margin-top: 9px;
+      padding-top: 7px;
+      border-top: 1px dashed var(--cinza-borda);
+      font-size: 6.8pt;
+      color: #b0b7c3;
+    }
+
+    /* =========================================================
+       RODAPÉ DE PÁGINA
+    ========================================================= */
+    .rodape-pagina {
+      position: absolute;
+      bottom: 10mm;
+      left: var(--margem);
+      right: var(--margem);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 7pt;
+      color: #b0b7c3;
+      border-top: 1px solid var(--cinza-borda);
+      padding-top: 5px;
+    }
+    .rodape-empresa { font-weight: 600; }
+
+    /* =========================================================
+       REGRAS DE IMPRESSÃO
+    ========================================================= */
+    @page { size: A4; margin: 0; }
+
+    @media print {
+      .sem-impressao { display: none !important; }
+
+      body { background: none; padding: 0; }
+      #paginas-wrapper { max-width: none; }
+
+      .pagina { margin: 0; break-after: page; }
+      .pagina:last-child { break-after: avoid; }
+
+      /* Inputs viram texto limpo */
+      .campo-input {
+        border: none !important;
+        background: transparent !important;
+        padding: 5px 0 !important;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      .tabela-detalhe tr { break-inside: avoid; }
+      .bloco-assinatura  { break-inside: avoid; }
+      .bloco             { break-inside: avoid; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       BARRA DE AÇÕES
+  ============================================================ -->
+  <div class="barra-acoes sem-impressao">
+    <p class="dica">
+      💡 <strong>Dica de impressão:</strong> no diálogo, selecione papel <strong>A4</strong>,
+      desative <em>cabeçalhos e rodapés do navegador</em> e escolha <em>Salvar como PDF</em>.
+    </p>
+    <button class="btn btn-limpar"   onclick="limparFormulario()">↺ Limpar</button>
+    <button class="btn btn-imprimir" onclick="imprimir()">🖨 Imprimir / PDF</button>
+  </div>
+
+  <!-- ============================================================
+       CONTÊINER DE PÁGINAS (gerenciado por JS)
+  ============================================================ -->
+  <div id="paginas-wrapper"></div>
+
+  <!-- ============================================================
+       TEMPLATE DE PÁGINA (oculto, clonado pelo JS)
+  ============================================================ -->
+  <template id="tpl-pagina">
+    <div class="pagina">
+      <div class="conteudo-pagina"></div>
+      <footer class="rodape-pagina">
+        <span class="rodape-empresa">Ronda Alarmes</span>
+        <span class="rodape-num">Página 1 de 1</span>
+      </footer>
+    </div>
+  </template>
+
+
+  <script>
+  /* ==============================================================
+     ESTADO GLOBAL
+  ============================================================== */
+  var S = {
+    campo        : 'VT',
+    dataInicial  : '',
+    dataFinal    : '',
+    valor        : '',
+    dataPagamento: '',
+    timestamp    : '',
+    hash         : ''
+  };
+
+  /* ==============================================================
+     UTILITÁRIOS
+  ============================================================== */
+
+  function dataHojeISO() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  function isoParaBR(iso) {
+    if (!iso) return '';
+    var p = iso.split('-');
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+
+  function formatarMoeda(v) {
+    return 'R$\u00A0' + v.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  /* Parseia string de valor (aceita vírgula decimal e ponto de milhar) */
+  function parsearValor(s) {
+    if (!s) return NaN;
+    // remove tudo exceto dígitos e vírgula/ponto
+    var clean = s.replace(/[^\d,\.]/g, '');
+    // se tem vírgula como decimal (formato BR)
+    if (clean.indexOf(',') !== -1) {
+      clean = clean.replace(/\./g, '').replace(',', '.');
+    }
+    return parseFloat(clean);
+  }
+
+  /* Qtde de dias inclusiva entre duas datas ISO. Retorna null se inválido. */
+  function calcularDias(ini, fim) {
+    if (!ini || !fim) return null;
+    var d1 = new Date(ini + 'T00:00:00');
+    var d2 = new Date(fim + 'T00:00:00');
+    var diff = Math.round((d2 - d1) / 86400000);
+    if (diff < 0) return null;
+    return diff + 1;
+  }
+
+  /* Lista datas ISO entre ini e fim, inclusive */
+  function listarDatas(ini, fim) {
+    var lista = [];
+    var cur = new Date(ini + 'T00:00:00');
+    var end = new Date(fim + 'T00:00:00');
+    while (cur <= end) {
+      lista.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return lista;
+  }
+
+  /*
+   * Distribui o valor total pelos dias.
+   * A última linha absorve resíduo de arredondamento.
+   * Garante que soma === valorTotal.
+   */
+  function calcularLinhas(valorTotal, datas) {
+    var n = datas.length;
+    if (!n || !valorTotal || valorTotal <= 0) return [];
+    var valorDia = valorTotal / n;
+    var linhas = [];
+    var acum = 0;
+    for (var i = 0; i < n; i++) {
+      var v;
+      if (i === n - 1) {
+        // Ajuste na última linha para fechar exatamente o total
+        v = Math.round((valorTotal - acum) * 100) / 100;
+      } else {
+        v = Math.round(valorDia * 100) / 100;
+      }
+      acum = Math.round((acum + v) * 100) / 100;
+      linhas.push({ data: datas[i], valor: v });
+    }
+    return linhas;
+  }
+
+  /* ==============================================================
+     GERAÇÃO DO BLOCO DE ASSINATURA DIGITAL
+  ============================================================== */
+
+  function gerarTimestamp() {
+    var agora = new Date();
+    var opts = {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
+    };
+    var p = new Intl.DateTimeFormat('pt-BR', opts).formatToParts(agora)
+              .reduce(function(acc, x) { acc[x.type] = x.value; return acc; }, {});
+    return p.day+'/'+p.month+'/'+p.year+' '+p.hour+':'+p.minute+':'+p.second+' (GMT-3)';
+  }
+
+  function gerarHash() {
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    var grupos = [];
+    for (var g = 0; g < 8; g++) {
+      var bloco = '';
+      for (var c = 0; c < 4; c++) {
+        bloco += chars[Math.floor(Math.random() * chars.length)];
+      }
+      grupos.push(bloco);
+    }
+    return grupos.join('-');
+  }
+
+  /* ==============================================================
+     LABEL DO CAMPO
+  ============================================================== */
+  var CAMPO_LABEL = { VT: 'Vale-Transporte', VA: 'Vale-Alimentação', VR: 'Vale-Refeição' };
+
+  function campoLabel(codigo) {
+    return CAMPO_LABEL[codigo] || codigo;
+  }
+
+  /* ==============================================================
+     CONSTRUTORES DE ELEMENTOS DOM
+  ============================================================== */
+
+  /* Cabeçalho do documento (repetido em cada página) */
+  function criarCabecalho(continuacao) {
+    var div = document.createElement('div');
+    div.className = 'doc-cabecalho';
+    var subtitulo = 'Ronda Alarmes &nbsp;·&nbsp; ' + campoLabel(S.campo);
+    if (continuacao) {
+      subtitulo += '&emsp;<span style="font-size:7pt;color:#9ca3af">(continuação)</span>';
+    }
+    div.innerHTML =
+      '<div class="doc-titulo">Recibo de Ajuda de Custo</div>' +
+      '<div class="doc-subtitulo">' + subtitulo + '</div>';
+    return div;
+  }
+
+  /* Bloco de Parâmetros */
+  function criarBlocoParametros(dias, periodoValido) {
+    var div = document.createElement('div');
+    div.className = 'bloco';
+
+    var campos = [
+      { codigo: 'VT', label: 'VT — Vale-Transporte' },
+      { codigo: 'VA', label: 'VA — Vale-Alimentação' },
+      { codigo: 'VR', label: 'VR — Vale-Refeição' }
+    ];
+    var opcoesHTML = campos.map(function(c) {
+      return '<option value="'+c.codigo+'"'+(S.campo===c.codigo?' selected':'')+'>'+c.label+'</option>';
+    }).join('');
+
+    var avisoHTML = '';
+    if (S.dataInicial && S.dataFinal && !periodoValido) {
+      avisoHTML = '<div class="aviso-erro">⚠ A data final não pode ser anterior à data inicial.</div>';
+    }
+
+    div.innerHTML =
+      '<div class="bloco-titulo">Parâmetros</div>' +
+      '<div class="campos-grid">' +
+        '<div class="campo-item span2">' +
+          '<span class="campo-label">Campo</span>' +
+          '<select class="campo-input sem-impressao" onchange="atualizar(\'campo\',this.value)">' +
+            opcoesHTML +
+          '</select>' +
+          '<span class="campo-fixo" style="display:none">' + (S.campo+' — '+campoLabel(S.campo)) + '</span>' +
+        '</div>' +
+
+        '<div class="campo-item">' +
+          '<span class="campo-label">Data Inicial</span>' +
+          '<input type="date" class="campo-input sem-impressao" value="'+S.dataInicial+'" ' +
+                 'onchange="atualizar(\'dataInicial\',this.value)">' +
+          '<span class="campo-fixo" style="display:none">'+(isoParaBR(S.dataInicial)||'—')+'</span>' +
+        '</div>' +
+
+        '<div class="campo-item">' +
+          '<span class="campo-label">Data Final</span>' +
+          '<input type="date" class="campo-input sem-impressao" value="'+S.dataFinal+'" ' +
+                 'onchange="atualizar(\'dataFinal\',this.value)">' +
+          '<span class="campo-fixo" style="display:none">'+(isoParaBR(S.dataFinal)||'—')+'</span>' +
+        '</div>' +
+
+        '<div class="campo-item">' +
+          '<span class="campo-label">Qtde de Dias</span>' +
+          '<input type="text" class="campo-input" readonly ' +
+                 'value="'+(periodoValido && S.dataInicial && S.dataFinal ? dias : '—')+'">' +
+        '</div>' +
+      '</div>' +
+      avisoHTML;
+
+    return div;
+  }
+
+  /* Bloco de Beneficiário */
+  function criarBlocoBeneficiario(valorNum, valorValido) {
+    var div = document.createElement('div');
+    div.className = 'bloco';
+
+    div.innerHTML =
+      '<div class="bloco-titulo">Beneficiário e Pagamento</div>' +
+      '<div class="campos-grid">' +
+
+        '<div class="campo-item span2">' +
+          '<span class="campo-label">Beneficiário</span>' +
+          '<span class="campo-fixo">Flávio Chaves Linhares</span>' +
+        '</div>' +
+
+        '<div class="campo-item">' +
+          '<span class="campo-label">Valor Total (R$)</span>' +
+          '<input type="text" class="campo-input sem-impressao" placeholder="Ex.: 600,00" ' +
+                 'value="'+S.valor+'" ' +
+                 'onchange="atualizar(\'valor\',this.value)">' +
+          '<span class="campo-fixo" style="display:none">'+(valorValido ? formatarMoeda(valorNum) : '—')+'</span>' +
+        '</div>' +
+
+        '<div class="campo-item">' +
+          '<span class="campo-label">Forma de Pagamento</span>' +
+          '<span class="campo-fixo">PIX — Chave: 61.9.8611-1827</span>' +
+        '</div>' +
+
+        '<div class="campo-item span2">' +
+          '<span class="campo-label">Data de Pagamento</span>' +
+          '<input type="date" class="campo-input sem-impressao" value="'+S.dataPagamento+'" ' +
+                 'onchange="atualizar(\'dataPagamento\',this.value)">' +
+          '<span class="campo-fixo" style="display:none">'+(isoParaBR(S.dataPagamento)||'—')+'</span>' +
+        '</div>' +
+
+      '</div>';
+
+    return div;
+  }
+
+  /* Bloco de Assinatura */
+  function criarBlocoAssinatura() {
+    var div = document.createElement('div');
+    div.className = 'bloco-assinatura';
+    div.innerHTML =
+      '<div class="assin-badge">&#10004; Assinado Eletronicamente &middot; Documento Verificado</div>' +
+      '<div class="assin-nome">Fl&aacute;vio Chaves Linhares</div>' +
+      '<div class="assin-meta">' +
+        '<div class="assin-meta-item">' +
+          '<span class="assin-meta-label">Signat&aacute;rio</span>' +
+          '<span class="assin-meta-valor">Fl&aacute;vio Chaves Linhares</span>' +
+        '</div>' +
+        '<div class="assin-meta-item">' +
+          '<span class="assin-meta-label">C&oacute;digo da Assinatura</span>' +
+          '<span class="assin-meta-valor" style="font-family:var(--fonte-mono);color:var(--azul-principal);font-weight:700">sh26</span>' +
+        '</div>' +
+        '<div class="assin-meta-item">' +
+          '<span class="assin-meta-label">Data / Hora do Aceite</span>' +
+          '<span class="assin-meta-valor">'+S.timestamp+'</span>' +
+        '</div>' +
+        '<div class="assin-meta-item">' +
+          '<span class="assin-meta-label">C&oacute;digo de Verifica&ccedil;&atilde;o</span>' +
+          '<span class="assin-hash">'+S.hash+'</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="assin-rodape">Este documento foi assinado eletronicamente conforme os dados acima. ' +
+      'A validade jur&iacute;dica est&aacute; condicionada &agrave; aceita&ccedil;&atilde;o das partes.</div>';
+    return div;
+  }
+
+  /* ==============================================================
+     CRIAÇÃO DE PÁGINA
+  ============================================================== */
+  function criarPagina(continuacao) {
+    var tpl = document.getElementById('tpl-pagina').content.cloneNode(true);
+    var pag = tpl.querySelector('.pagina');
+    var con = pag.querySelector('.conteudo-pagina');
+    con.appendChild(criarCabecalho(!!continuacao));
+    return pag;
+  }
+
+  /* Cria uma <table> de detalhamento com cabeçalho */
+  function criarTabela() {
+    var t = document.createElement('table');
+    t.className = 'tabela-detalhe';
+    var thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Data</th><th>Valor</th></tr>';
+    t.appendChild(thead);
+    var tbody = document.createElement('tbody');
+    t.appendChild(tbody);
+    return { tabela: t, tbody: tbody };
+  }
+
+  /* ==============================================================
+     ALTURA ÚTIL DA PÁGINA EM PIXELS
+     297mm - 2×16mm margens - 20mm rodapé = 245mm → px (96dpi)
+  ============================================================== */
+  function alturaUtilPx() {
+    return Math.floor(245 / 25.4 * 96);
+  }
+
+  /* ==============================================================
+     RENDERIZAÇÃO PRINCIPAL
+  ============================================================== */
+  function renderizar() {
+    var wrapper = document.getElementById('paginas-wrapper');
+    wrapper.innerHTML = '';
+
+    var dias       = calcularDias(S.dataInicial, S.dataFinal);
+    var valido     = dias !== null;
+    var valorNum   = parsearValor(S.valor);
+    var valorOk    = !isNaN(valorNum) && valorNum > 0;
+
+    var datas  = (valido && valorOk) ? listarDatas(S.dataInicial, S.dataFinal) : [];
+    var linhas = (valido && valorOk) ? calcularLinhas(valorNum, datas) : [];
+
+    var altUtil = alturaUtilPx();
+
+    /* ---- Página inicial ---- */
+    var pagAtual  = criarPagina(false);
+    var conAtual  = pagAtual.querySelector('.conteudo-pagina');
+    wrapper.appendChild(pagAtual);
+
+    /* Blocos fixos (sempre página 1) */
+    conAtual.appendChild(criarBlocoParametros(dias, valido));
+    conAtual.appendChild(criarBlocoBeneficiario(valorNum, valorOk));
+
+    /* Título da seção de tabela */
+    var tituloTab = document.createElement('div');
+    tituloTab.className = 'tabela-titulo';
+    tituloTab.textContent = 'Detalhamento por Dia';
+    conAtual.appendChild(tituloTab);
+
+    /* ---- Tabela com paginação linha a linha ---- */
+    var atual = criarTabela();
+    conAtual.appendChild(atual.tabela);
+
+    if (linhas.length === 0) {
+      /* Tabela vazia */
+      var trVaz = document.createElement('tr');
+      var tdVaz = document.createElement('td');
+      tdVaz.colSpan = 2;
+      tdVaz.className = 'tabela-vazia';
+      if (S.dataInicial && S.dataFinal && !valido) {
+        tdVaz.textContent = 'Período inválido — a data final é anterior à inicial.';
+      } else {
+        tdVaz.textContent = 'Preencha o período e o valor total para gerar o detalhamento.';
+      }
+      trVaz.appendChild(tdVaz);
+      atual.tbody.appendChild(trVaz);
+    } else {
+      /* Inserir linhas medindo overflow */
+      for (var i = 0; i < linhas.length; i++) {
+        var l = linhas[i];
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>'+isoParaBR(l.data)+'</td><td>'+formatarMoeda(l.valor)+'</td>';
+        atual.tbody.appendChild(tr);
+
+        /* Overflow → quebrar para nova página */
+        if (pagAtual.scrollHeight > altUtil) {
+          atual.tbody.removeChild(tr);
+
+          /* Indicador de continuação na tabela atual */
+          var tfCont = document.createElement('tfoot');
+          var trCont = document.createElement('tr');
+          var tdCont = document.createElement('td');
+          tdCont.colSpan = 2;
+          tdCont.className = 'continuacao-label';
+          tdCont.textContent = '↳ continua na próxima página';
+          trCont.appendChild(tdCont);
+          tfCont.appendChild(trCont);
+          atual.tabela.appendChild(tfCont);
+
+          /* Nova página */
+          pagAtual = criarPagina(true);
+          conAtual = pagAtual.querySelector('.conteudo-pagina');
+          wrapper.appendChild(pagAtual);
+
+          /* Nova tabela na nova página */
+          atual = criarTabela();
+          conAtual.appendChild(atual.tabela);
+
+          /* Reinserir a linha que transbordou */
+          atual.tbody.appendChild(tr);
+        }
+      }
+
+      /* Rodapé da tabela (totais) */
+      var tfoot = document.createElement('tfoot');
+      tfoot.innerHTML = '<tr><td>Total</td><td>'+formatarMoeda(valorNum)+'</td></tr>';
+      atual.tabela.appendChild(tfoot);
+
+      /* Verificar se o rodapé transbordou */
+      if (pagAtual.scrollHeight > altUtil) {
+        atual.tabela.removeChild(tfoot);
+        pagAtual = criarPagina(true);
+        conAtual = pagAtual.querySelector('.conteudo-pagina');
+        wrapper.appendChild(pagAtual);
+        var tblTotais = criarTabela();
+        tblTotais.tabela.appendChild(tfoot);
+        conAtual.appendChild(tblTotais.tabela);
+      }
+    }
+
+    /* ---- Bloco de assinatura ---- */
+    var assinEl = criarBlocoAssinatura();
+    var ASSIN_ALTURA_EST = 170; /* px estimados */
+    if (pagAtual.scrollHeight + ASSIN_ALTURA_EST > altUtil) {
+      pagAtual = criarPagina(true);
+      conAtual = pagAtual.querySelector('.conteudo-pagina');
+      wrapper.appendChild(pagAtual);
+    }
+    conAtual.appendChild(assinEl);
+
+    /* ---- Numerar rodapés: Página X de X ---- */
+    var todasPaginas = wrapper.querySelectorAll('.pagina');
+    var total = todasPaginas.length;
+    todasPaginas.forEach(function(p, idx) {
+      p.querySelector('.rodape-num').textContent = 'Página '+(idx+1)+' de '+total;
+    });
+  }
+
+  /* ==============================================================
+     AÇÕES
+  ============================================================== */
+
+  function atualizar(chave, valor) {
+    S[chave] = valor;
+    renderizar();
+  }
+
+  function imprimir() {
+    renderizar();
+    setTimeout(function() { window.print(); }, 120);
+  }
+
+  function limparFormulario() {
+    S.campo         = 'VT';
+    S.dataInicial   = '';
+    S.dataFinal     = '';
+    S.valor         = '';
+    S.dataPagamento = dataHojeISO();
+    renderizar();
+  }
+
+  /* ==============================================================
+     INICIALIZAÇÃO
+  ============================================================== */
+  document.addEventListener('DOMContentLoaded', function() {
+    S.timestamp    = gerarTimestamp();
+    S.hash         = gerarHash();
+    S.dataPagamento = dataHojeISO();
+    renderizar();
+  });
+  </script>
+</body>
+</html>
